@@ -1,2 +1,4 @@
 data/datasets
 *.pyc
+
+notebooks/ipynb_checkpoints/
