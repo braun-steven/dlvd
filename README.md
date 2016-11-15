@@ -5,9 +5,5 @@ Lecture and practicals can be found [here](http://www.staff.uni-mainz.de/chuli/t
 # Setup
 ```
 $ docker build -t tensorflow:tutorial .
-$ docker run -it \
-    -p 8888:8888 \
-    -v /home/$USER/DLVD/data:/opt/data \ 
-    -v /home/$USER/DLVD/notebooks:/notebooks \ 
-    tensorflow:tutorial
+$ docker run -it -p 8888:8888 -v /home/$USER/dlvd/data:/opt/data -v /home/$USER/dlvd/notebooks:/notebooks tensorflow:tutorial 
 ```
