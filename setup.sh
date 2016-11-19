@@ -1,4 +1,5 @@
 echo -e "Downloading datasets"
+mkdir -p data/datasets/
 cd data/datasets/
 wget https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz
 echo -e "Extracting datasets"

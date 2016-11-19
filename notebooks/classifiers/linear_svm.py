@@ -86,7 +86,47 @@ def svm_loss_forloop(W, X, y, reg, delta=1):
   # Use the ahove svm_loss_bias_forloop implementation as reference              #
   ################################################################################
 
-  return loss, dW
+  # initialize the returned results
+  loss = 0.0
+  d_W = np.zeros(W.shape)
+
+  # compute the loss and the gradient
+  num_classes = W.shape[1]
+  num_train = X.shape[0]
+    
+  for i in xrange(num_train):
+    # compute the classification scores for a single image
+    scores = X[i].dot(W)
+    correct_class_score = scores[y[i]]
+    for j in xrange(num_classes):
+        # compute the loss for this image
+        if j == y[i]:
+            continue
+        margin = scores[j] - correct_class_score + delta 
+        if margin > 0:
+            loss += margin
+            # compute the gradient for this image
+            d_W[:, j] += X[i, :].T
+            d_W[:, y[i]] -= X[i, :].T
+            
+            # Last column of W contains the b-Vector
+            # Hence update the j-th element of b with += 1 and
+            # the y[i]-th (correct class) with -= 1
+            d_W[:, num_classes - 1][j] += 1
+            d_W[:, num_classes - 1][y[i]] -= 1
+            
+  # Right now the loss is a sum over all training examples
+  # We need it to be an average instead so we divide by num_train.
+  loss /= num_train  
+  # Add regularization to the loss.
+  loss += 0.5 * reg * np.sum(W * W)
+  
+  # Do the same for d_W
+  d_W /= num_train
+  d_W += reg*W
+
+
+  return loss, d_W
 
 
 def svm_loss_vectorized(W, X, y, reg, delta=1):
@@ -202,15 +242,18 @@ class LinearSVM:
       # Hint: Use np.random.choice to generate indices. Sampling with         #
       # replacement is faster than sampling without replacement.              #
       #########################################################################
-
+      mask = np.random.choice(np.arange(X.shape[0]), size=batch_size, replace=False)
+      X_batch = X[mask]
+      y_batch = y[mask]
       # Step Two: Implement Gradient
       # Simply call self.loss (which calls svm_loss_vectorized) to evaluate loss and gradient
-
+      loss, dW = self.loss(X_batch, y_batch, reg)
       # Step Three: Implement Descent
       # Simply update the weights using the gradient and the learning rate.          #
-
+      self.W -= dW*learning_rate
       if verbose and it % 100 == 0:
         print 'iteration %d / %d: loss %f' % (it, num_iters, loss)
+      loss_history.append(loss)
 
     return loss_history
 
@@ -234,7 +277,9 @@ class LinearSVM:
     ###########################################################################
     # Implement this method. Store the predicted labels in y_pred.            #
     ###########################################################################
-
+    
+    scores = X.dot(self.W)
+    y_pred = np.argmax(scores, axis=1)
     return y_pred
 
   def loss(self, X_batch, y_batch, reg):
