@@ -110,16 +110,11 @@ def svm_loss_forloop(W, X, y, reg, delta=1):
                 d_W[:, j] += X[i, :].T
                 d_W[:, y[i]] -= X[i, :].T
 
-                # Last column of W contains the b-Vector
-                # Hence update the j-th element of b with += 1 and
-                # the y[i]-th (correct class) with -= 1
-                d_W[:, num_classes - 1][j] += 1
-                d_W[:, num_classes - 1][y[i]] -= 1
-
     # Right now the loss is a sum over all training examples
     # We need it to be an average instead so we divide by num_train.
     loss /= num_train
     # Add regularization to the loss.
+    W = W[:-1]
     loss += 0.5 * reg * np.sum(W * W)
 
     # Do the same for d_W
