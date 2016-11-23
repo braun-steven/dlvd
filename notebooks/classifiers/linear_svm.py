@@ -97,7 +97,7 @@ def svm_loss_forloop(W, X, y, reg, delta=1):
 
     for i in xrange(num_train):
         # compute the classification scores for a single image
-        scores = X[i].dot(W)  # Remove ' + b' since this is included in X[,X.shape[1]-1].dot(W[,W.shape[1]-1])
+        scores = X[i].dot(W)  # Remove ' + b' since this is included in X[,X.shape[1]-1].dot(W[W.shape[0]-1])
         correct_class_score = scores[y[i]]
         for j in xrange(num_classes):
             # compute the loss for this image
@@ -244,15 +244,20 @@ class LinearSVM:
             # Hint: Use np.random.choice to generate indices. Sampling with         #
             # replacement is faster than sampling without replacement.              #
             #########################################################################
-            mask = np.random.choice(np.arange(X.shape[0]), size=batch_size, replace=False)
+            
+            # Get a batch of random training data points
+            mask = np.random.choice(np.arange(num_train), size=batch_size, replace=False)
             X_batch = X[mask]
             y_batch = y[mask]
+            
             # Step Two: Implement Gradient
             # Simply call self.loss (which calls svm_loss_vectorized) to evaluate loss and gradient
             loss, dW = self.loss(X_batch, y_batch, reg)
+            
             # Step Three: Implement Descent
             # Simply update the weights using the gradient and the learning rate.          #
             self.W -= dW * learning_rate
+            
             if verbose and it % 100 == 0:
                 print
                 'iteration %d / %d: loss %f' % (it, num_iters, loss)
@@ -280,9 +285,13 @@ class LinearSVM:
         ###########################################################################
         # Implement this method. Store the predicted labels in y_pred.            #
         ###########################################################################
-
+           
+        # Compute the scores of each testing instance for each class
         scores = X.dot(self.W)
+        
+        # For each testing instance get the class with the highest score
         y_pred = np.argmax(scores, axis=1)
+        
         return y_pred
 
     def loss(self, X_batch, y_batch, reg):
