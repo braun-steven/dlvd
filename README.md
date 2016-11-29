@@ -6,6 +6,7 @@ Lecture and practicals can be found [here](http://www.staff.uni-mainz.de/chuli/t
 ```
 $ cd ~
 $ git clone git@gitlab.com:Tak3r07/dlvd.git
+$ cd dlvd
 $ bash setup.sh
 $ docker run -it -p 8888:8888 -v /home/$USER/dlvd/data:/opt/data -v /home/$USER/dlvd/notebooks:/notebooks tensorflow:tutorial 
 ```
