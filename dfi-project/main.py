@@ -32,8 +32,7 @@ def phi(imgs=[]):
 
 
     t0 = time()
-    # [conv3, conv4, conv5] = sess.run(tensors,
-    [conv3] = sess.run(tensors,
+    [conv3, conv4, conv5] = sess.run(tensors,
                        feed_dict={
                            nn.inputRGB: imgs
                        })
@@ -41,9 +40,9 @@ def phi(imgs=[]):
     print('Took {}'.format(t1 - t0))
     res = []
     for idx in range(len(imgs)):
-        phi_img = np.append(conv3[idx].reshape(-1), []
-                            # np.append(conv4[idx].reshape(-1),
-                            #         conv5[idx].reshape(-1))
+        phi_img = np.append(conv3[idx].reshape(-1),
+                             np.append(conv4[idx].reshape(-1),
+                                     conv5[idx].reshape(-1))
                             )
         res.append(phi_img)
     return res
@@ -62,15 +61,16 @@ def main(feat='No Beard', person_index=0):
         tf.global_variables_initializer().run()
         global tensors
         tensors = [graph.get_tensor_by_name('conv3_1/Conv2D:0')
-                   # , graph.get_tensor_by_name('conv4_1/Conv2D:0')
-                   # , graph.get_tensor_by_name('conv5_1/Conv2D:0')]
-                   ]
+                    , graph.get_tensor_by_name('conv4_1/Conv2D:0')
+                    , graph.get_tensor_by_name('conv5_1/Conv2D:0')]
+
         print('Initialized session')
+
         atts = load_discrete_lfw_attributes()
         imgs_path = atts['path'].values
         person_img = reduce_img_size(utils.load_images(*[imgs_path[0]]))
 
-        pos_nn, pos_paths, neg_nn, neg_paths = get_sets(atts, feat, person_index)
+        pos_paths, neg_paths = get_sets(atts, feat, person_index)
 
         pos_paths = pos_paths.as_matrix()
         neg_paths = neg_paths.as_matrix()
@@ -140,10 +140,10 @@ def get_sets(atts, feat, person_index):
     # Split by feature
     neg_set = atts.loc[atts[feat] == -1]
     pos_set = atts.loc[atts[feat] == 1]
-    pos_nn, pos_paths = get_k_neighbors(pos_set, person)
-    neg_nn, neg_paths = get_k_neighbors(neg_set, person)
+    pos_paths = get_k_neighbors(pos_set, person)
+    neg_paths = get_k_neighbors(neg_set, person)
 
-    return pos_nn, pos_paths, neg_nn, neg_paths
+    return pos_paths, neg_paths
 
 
 def get_k_neighbors(subset, person):
@@ -157,9 +157,8 @@ def get_k_neighbors(subset, person):
     knn_indices = knn.kneighbors(person.as_matrix(), n_neighbors=K, return_distance=False)[0]
 
     neighbor_paths = paths.iloc[knn_indices]
-    neighbors = subset.iloc[knn_indices]
 
-    return neighbors, neighbor_paths
+    return neighbor_paths
 
 
 def load_lfw_attributes():
