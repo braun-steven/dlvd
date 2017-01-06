@@ -49,11 +49,14 @@ def phi(imgs=[]):
 
 
 def main(feat='No Beard', person_index=0):
-    global graph
-    graph = tf.Graph()
-    with graph.as_default():
-        global nn
-        nn = Vgg19(model=model)
+
+    with tf.device('/gpu:0'):
+
+        global graph
+        graph = tf.Graph()
+        with graph.as_default():
+            global nn
+            nn = Vgg19(model=model)
 
     # Run the graph in the session.
     global sess
@@ -83,7 +86,7 @@ def main(feat='No Beard', person_index=0):
 
         w = np.mean(pos_deep_features, axis=0) - np.mean(neg_deep_features, axis=0)
 
-        phi_x = phi(person_img)[0]
+        phi_x = phi([person_img])[0]
         phi_z = phi_x + ALPHA * w
 
         print('Starting minimize function')
@@ -105,7 +108,7 @@ def minimize_z(z, phi_z, lamb, beta):
     # Reshape into image form
     z = z.reshape(-1, 224, 224, 3)
 
-    return 0.5 * np.linalg.norm(phi_z - phi(z)[0]) ** 2 + lamb * R(z, beta)
+    return 0.5 * np.linalg.norm(phi_z - phi([z])[0]) ** 2 + lamb * R(z, beta)
 
 
 def R(z, beta):
