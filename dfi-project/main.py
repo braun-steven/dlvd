@@ -86,7 +86,7 @@ def main(feat='No Beard', person_index=0):
 
         w = np.mean(pos_deep_features, axis=0) - np.mean(neg_deep_features, axis=0)
 
-        phi_x = phi([person_img])[0]
+        phi_x = phi(person_img)[0]
         phi_z = phi_x + ALPHA * w
 
         print('Starting minimize function')
@@ -94,7 +94,7 @@ def main(feat='No Beard', person_index=0):
                            x0=person_img,
                            args=(phi_z, LAMB, BETA),
                            method='L-BFGS-B',
-                           options={'maxiter': 1,
+                           options={'maxfun': 10,
                                     'disp': True,
                                     # 'factr':10**10
                                     },
@@ -108,7 +108,7 @@ def minimize_z(z, phi_z, lamb, beta):
     # Reshape into image form
     z = z.reshape(-1, 224, 224, 3)
 
-    return 0.5 * np.linalg.norm(phi_z - phi([z])[0]) ** 2 + lamb * R(z, beta)
+    return 0.5 * np.linalg.norm(phi_z - phi(z)[0]) ** 2 + lamb * R(z, beta)
 
 
 def R(z, beta):
