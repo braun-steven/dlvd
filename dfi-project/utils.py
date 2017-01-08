@@ -1,4 +1,5 @@
 import numpy as np
+import pandas
 from scipy import ndimage
 
 
@@ -32,3 +33,54 @@ def print_prediction(pred, label_file_path, img_path=None):
                              for i in range(5)]))
     else:
         print([(synset[indices[i]], pred[indices[i]]) for i in range(5)])
+
+
+
+def load_lfw_attributes():
+    """Loads the lfw attribute file
+
+    :return: Pandas dataframe containing the lfw attributes for each image
+    """
+    path = './data/lfw_attributes.txt'
+    df = pandas.read_csv(path, sep='\t')
+
+    paths = []
+
+    for idx, row in df.iterrows():
+        name = row[0]
+        img_idx = str(row[1])
+        name = name.replace(' ', '_')
+
+        while len(img_idx) < 4:
+            img_idx = '0' + img_idx
+
+        path = './data/lfw-deepfunneled/{0}/{0}_{1}.jpg'.format(name, img_idx)
+        paths.append(path)
+    df['path'] = paths
+    del df['imagenum']
+    return df
+
+
+def load_discrete_lfw_attributes():
+    """Loads the discretized lfw attributes
+
+    :return: Discretized lfw attributes
+    """
+    df = load_lfw_attributes()
+
+    for column in df:
+        if column == 'person' or column == 'path':
+            continue
+        df[column] = df[column].apply(np.sign)
+
+    return df
+
+
+def reduce_img_size(imgs):
+    for idx, img in enumerate(imgs):
+        imgs[idx] = img[13:-13, 13:-13]
+    return imgs
+
+
+def load_model(model_path):
+    return np.load(model_path, encoding='latin1').item()

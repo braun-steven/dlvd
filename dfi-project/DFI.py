@@ -4,7 +4,10 @@ import numpy as np
 import pandas
 import tensorflow as tf
 import os
-import utils
+
+from tensorflow.contrib.opt import ScipyOptimizerInterface
+
+from utils import *
 from vgg19 import Vgg19
 from sklearn.neighbors import KNeighborsClassifier
 from scipy.optimize import minimize
@@ -18,7 +21,7 @@ class DFI:
         self._beta = beta
         self._lamb = lamb
         self._num_layers = num_layers
-        self._model = self._load_model(model_path)
+        self._model = load_model(model_path)
         self._gpu = gpu
 
         self._tensor_names = ['conv3_1/Relu:0', 'conv4_1/Relu:0', 'conv5_1/Relu:0']
@@ -46,62 +49,88 @@ class DFI:
 
             self._tensors = [self._graph.get_tensor_by_name(self._tensor_names[idx]) for idx in range(self._num_layers)]
 
-            print('Initialized session')
-
-            t_start = time()
-            atts = self._load_discrete_lfw_attributes()
+            atts = load_discrete_lfw_attributes()
             imgs_path = atts['path'].values
-            person_img = self._reduce_img_size(utils.load_images(*[imgs_path[0]]))[0]
+            start_img = reduce_img_size(load_images(*[imgs_path[0]]))[0]
 
+            # Get image paths
             pos_paths, neg_paths = self._get_sets(atts, feat, person_index)
 
-            pos_paths = pos_paths.as_matrix()
-            neg_paths = neg_paths.as_matrix()
+            # Reduce image sizes
+            pos_imgs = reduce_img_size(load_images(*pos_paths))
+            neg_imgs = reduce_img_size(load_images(*neg_paths))
 
-            pos_imgs = self._reduce_img_size(utils.load_images(*pos_paths))
-            neg_imgs = self._reduce_img_size(utils.load_images(*neg_paths))
-
+            # Get pos/neg deep features
             pos_deep_features = self._phi(pos_imgs)
             neg_deep_features = self._phi(neg_imgs)
 
+            # Calc W
             w = np.mean(pos_deep_features, axis=0) - np.mean(neg_deep_features, axis=0)
             w /= np.linalg.norm(w)
 
-            phi_x = self._phi(person_img)
-            phi_z = phi_x + self._alpha * w
+            # Calc phi(z)
+            phi_z = self._phi(start_img) + self._alpha * w
 
-            initial_guess = np.array(person_img).reshape(-1)
+            initial_guess = np.array(start_img).reshape(-1)
+
+            # Define loss
+            loss = self._minimize_z_tf(initial_guess, phi_z)
+
+            # Run optimization steps in tensorflow
+            optimizer = ScipyOptimizerInterface(loss, options={'maxiter': 10})
+            with tf.Session() as session:
+                optimizer.minimize(session)
 
             # Create bounds
             bounds = []
             for i in range(initial_guess.shape[0]):
                 bounds.append((0, 255))
 
-            print('Starting minimize function')
-            opt_res = minimize(fun=self._minimize_z,
-                               x0=initial_guess,
-                               args=(phi_z, self._lamb, self._beta),
-                               method='L-BFGS-B',
-                               options={
-                                   # 'maxfun': 10,
-                                   'disp': True,
-                                   'eps': 5,
-                                   'maxiter': 1
-                               },
-                               bounds=bounds
-                               )
+            # print('Starting minimize function')
+            # opt_res = minimize(fun=self._minimize_z,
+            #                    x0=initial_guess,
+            #                    args=(phi_z, self._lamb, self._beta),
+            #                    method='L-BFGS-B',
+            #                    options={
+            #                        # 'maxfun': 10,
+            #                        'disp': True,
+            #                        'eps': 5,
+            #                        'maxiter': 1
+            #                    },
+            #                    bounds=bounds
+            #                    )
 
-            t_end = time()
-            print(t_end - t_start)
-            return opt_res.x
+    def _minimize_z_tf(self, initial_guess, phi_z):
+        tf_z = tf.Variable(initial_guess, 'z')
+        tf_phi_z = tf.constant(phi_z)
+        loss_first = tf.scalar_mul(0.5,
+                                   tf.reduce_sum(
+                                       tf.square(
+                                           tf.subtract(tf_z, tf_phi_z))))
+        tv_loss = tf.scalar_mul(self._lamb,
+                                self._total_variation_regularization(tf_z, self._beta))
+        loss = tf.add(loss_first, tv_loss)
+        return loss
 
-    def attributes(self):
-        print('TODO: Implement')
+    def _total_variation_regularization(self, x, beta=1):
+        """ Idea from:
+        https://github.com/antlerros/tensorflow-fast-neuralstyle/blob/master/net.py
+        """
+        assert isinstance(x, tf.Tensor)
+        wh = tf.constant([[[[1], [1], [1]]], [[[-1], [-1], [-1]]]], tf.float32)
+        ww = tf.constant([[[[1], [1], [1]], [[-1], [-1], [-1]]]], tf.float32)
+        tvh = lambda x: self._conv2d(x, wh, p='SAME')
+        tvw = lambda x: self._conv2d(x, ww, p='SAME')
+        dh = tvh(x)
+        dw = tvw(x)
+        tv = (tf.add(tf.reduce_sum(dh ** 2, [1, 2, 3]), tf.reduce_sum(dw ** 2, [1, 2, 3]))) ** (beta / 2.)
+        return tv
+
+    def _conv2d(self, x, W, strides=[1, 1, 1, 1], p='SAME', name=None):
+        assert isinstance(x, tf.Tensor)
+        return tf.nn.conv2d(x, W, strides=strides, padding=p, name=name)
+
         pass
-
-    def _load_model(self, model_path):
-        return np.load(model_path, encoding='latin1').item()
-
     def _phi(self, imgs):
         """Transform list of images into deep feature space
 
@@ -139,44 +168,6 @@ class DFI:
         else:
             return [np.linalg.norm(x) for x in res]  # List of images
 
-    def _load_lfw_attributes(self):
-        """Loads the lfw attribute file
-
-        :return: Pandas dataframe containing the lfw attributes for each image
-        """
-        path = './data/lfw_attributes.txt'
-        df = pandas.read_csv(path, sep='\t')
-
-        paths = []
-
-        for idx, row in df.iterrows():
-            name = row[0]
-            img_idx = str(row[1])
-            name = name.replace(' ', '_')
-
-            while len(img_idx) < 4:
-                img_idx = '0' + img_idx
-
-            path = './data/lfw-deepfunneled/{0}/{0}_{1}.jpg'.format(name, img_idx)
-            paths.append(path)
-        df['path'] = paths
-        del df['imagenum']
-        return df
-
-    def _load_discrete_lfw_attributes(self):
-        """Loads the discretized lfw attributes
-
-        :return: Discretized lfw attributes
-        """
-        df = self._load_lfw_attributes()
-
-        for column in df:
-            if column == 'person' or column == 'path':
-                continue
-            df[column] = df[column].apply(np.sign)
-
-        return df
-
     def _minimize_z(self, z, phi_z, lamb, beta):
         # Reshape into image form
 
@@ -210,11 +201,6 @@ class DFI:
 
         return result
 
-    def _reduce_img_size(self, imgs):
-        for idx, img in enumerate(imgs):
-            imgs[idx] = img[13:-13, 13:-13]
-        return imgs
-
     def _get_sets(self, atts, feat, person_index):
         person = atts.loc[person_index]
         del person['person']
@@ -229,7 +215,7 @@ class DFI:
         pos_paths = self._get_k_neighbors(pos_set, person)
         neg_paths = self._get_k_neighbors(neg_set, person)
 
-        return pos_paths, neg_paths
+        return pos_paths.as_matrix(), neg_paths.as_matrix()
 
     def _get_k_neighbors(self, subset, person):
         del subset['person']
@@ -244,3 +230,7 @@ class DFI:
         neighbor_paths = paths.iloc[knn_indices]
 
         return neighbor_paths
+
+    def attributes(self):
+        print('TODO: Implement')
+        pass
