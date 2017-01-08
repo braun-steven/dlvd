@@ -8,6 +8,7 @@ import utils
 from vgg19 import Vgg19
 from sklearn.neighbors import KNeighborsClassifier
 from scipy.optimize import minimize
+from scipy.optimize import  fmin_l_bfgs_b
 
 model = np.load("vgg19.npy", encoding='latin1').item()
 
@@ -32,7 +33,10 @@ def phi(imgs=[]):
 
 
     t0 = time()
-    [conv3, conv4, conv5] = sess.run(tensors,
+    [conv3,
+     #conv4,
+     #conv5
+     ] = sess.run(tensors,
                        feed_dict={
                            nn.inputRGB: imgs
                        })
@@ -40,16 +44,17 @@ def phi(imgs=[]):
     print('Took {}'.format(t1 - t0))
     res = []
     for idx in range(len(imgs)):
-        phi_img = np.append(conv3[idx].reshape(-1),
-                             np.append(conv4[idx].reshape(-1),
-                                     conv5[idx].reshape(-1))
-                            )
+        phi_img = conv3[idx].reshape(-1)
+        #phi_img = np.append(conv3[idx].reshape(-1),
+        #                     np.append(conv4[idx].reshape(-1),
+        #                             conv5[idx].reshape(-1))
+        #                    )
         res.append(phi_img)
-    return res
+    return [np.linalg.norm(x) for x in res]
 
 
 def main(feat='No Beard', person_index=0):
-
+    t_start=time()
     with tf.device('/gpu:0'):
 
         global graph
@@ -58,14 +63,21 @@ def main(feat='No Beard', person_index=0):
             global nn
             nn = Vgg19(model=model)
 
-    # Run the graph in the session.
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = False
+
+
+    config.gpu_options.per_process_gpu_memory_fraction = 0.80
+
+# Run the graph in the session.
     global sess
-    with tf.Session(graph=graph) as sess:
+    with tf.Session(graph=graph, config=config) as sess:
         tf.global_variables_initializer().run()
         global tensors
-        tensors = [graph.get_tensor_by_name('conv3_1/Conv2D:0')
-                    , graph.get_tensor_by_name('conv4_1/Conv2D:0')
-                    , graph.get_tensor_by_name('conv5_1/Conv2D:0')]
+        tensors = [graph.get_tensor_by_name('conv3_1/Relu:0')
+            #, graph.get_tensor_by_name('conv4_1/Relu:0')
+            #, graph.get_tensor_by_name('conv5_1/Relu:0')
+                   ]
 
         print('Initialized session')
 
@@ -85,30 +97,51 @@ def main(feat='No Beard', person_index=0):
         neg_deep_features = phi(neg_imgs)
 
         w = np.mean(pos_deep_features, axis=0) - np.mean(neg_deep_features, axis=0)
+        w /= np.linalg.norm(w)
 
         phi_x = phi(person_img)[0]
         phi_z = phi_x + ALPHA * w
 
+        bounds = []
+
+        initial_guess = np.array(person_img[0]).reshape(-1)
+
+        for i in range(initial_guess.shape[0]):
+            bounds.append((0,255))
+
+
         print('Starting minimize function')
         opt_res = minimize(fun=minimize_z,
-                           x0=person_img,
+                           x0=initial_guess,
                            args=(phi_z, LAMB, BETA),
                            method='L-BFGS-B',
-                           options={'maxfun': 10,
-                                    'disp': True,
-                                    # 'factr':10**10
-                                    },
-                           # bounds=(0, 255)
+                           options={#'maxfun': 10,
+                               'disp': True,
+                               'eps' : 5,
+                               # 'factr':10**10,
+                               'maxiter':1
+                           },
+                           bounds= bounds
                            )
-        print(opt_res)
+
+
+        t_end=time()
+        print(t_end-t_start)
         return opt_res.x
 
 
 def minimize_z(z, phi_z, lamb, beta):
     # Reshape into image form
+
     z = z.reshape(-1, 224, 224, 3)
 
-    return 0.5 * np.linalg.norm(phi_z - phi(z)[0]) ** 2 + lamb * R(z, beta)
+    first_term = 0.5 * np.linalg.norm(phi_z - phi(z)[0]) ** 2
+    second_term = lamb * R(z, beta)
+    res = first_term + second_term
+    print(first_term)
+    print(second_term)
+    #print(res)
+    return res
 
 
 def R(z, beta):
@@ -119,12 +152,17 @@ def R(z, beta):
     :return: R
     """
     result = 0
+    z=z[0]
     for i in range(z.shape[0] - 1):
         for j in range(z.shape[1] - 1):
             var = np.linalg.norm(z[i][j + 1] - z[i][j]) ** 2 + \
                   np.linalg.norm(z[i + 1][j] - z[i][j]) ** 2
 
             result += var ** (beta * 0.5)
+
+    # normalize R
+    result /= np.prod(z.shape, dtype=np.float32)
+
     return result
 
 
