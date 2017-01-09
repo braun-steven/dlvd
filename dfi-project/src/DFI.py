@@ -1,8 +1,7 @@
-from time import time
-
 import tensorflow as tf
 from sklearn.neighbors import KNeighborsClassifier
 from tensorflow.contrib.opt import ScipyOptimizerInterface
+from time import time
 
 from utils import *
 from vgg19 import Vgg19
@@ -47,7 +46,7 @@ class DFI:
         with tf.Session(graph=self._graph, config=config) as self._sess:
             self._sess.run(tf.global_variables_initializer())
 
-            self._tensors = [
+            self._conv_layer_tensors = [
                 self._graph.get_tensor_by_name(self._tensor_names[idx]) for idx
                 in range(self._num_layers)]
 
@@ -76,36 +75,25 @@ class DFI:
 
             initial_guess = np.array(start_img).reshape(-1)
 
+            # Variable which is to be optimized
+            tf_z = tf.Variable(initial_guess, 'z', dtype=tf.float32)
+
             # Define loss
-            loss = self._minimize_z_tf(start_img, phi_z)
+            loss = self._minimize_z_tf(start_img, phi_z, tf_z)
 
             # Run optimization steps in tensorflow
             optimizer = ScipyOptimizerInterface(loss, options={'maxiter': 10})
             self._sess.run(tf.global_variables_initializer())
             optimizer.minimize(self._sess)
 
-            # Create bounds
-            bounds = []
-            for i in range(initial_guess.shape[0]):
-                bounds.append((0, 255))
+            # Obtain Z
+            z = self._sess.run(tf_z)
 
-                # print('Starting minimize function')
-                # opt_res = minimize(fun=self._minimize_z,
-                #                    x0=initial_guess,
-                #                    args=(phi_z, self._lamb, self._beta),
-                #                    method='L-BFGS-B',
-                #                    options={
-                #                        # 'maxfun': 10,
-                #                        'disp': True,
-                #                        'eps': 5,
-                #                        'maxiter': 1
-                #                    },
-                #                    bounds=bounds
-                #                    )
+            # Dump result to 'z.npy'
+            np.array(z).save('z.npy')
 
-    def _minimize_z_tf(self, initial_guess, phi_z):
+    def _minimize_z_tf(self, initial_guess, phi_z, tf_z):
         # Init z with the initial guess
-        tf_z = tf.Variable(initial_guess, 'z', dtype=tf.float32)
         tf_phi_z = tf.constant(phi_z, dtype=tf.float32)
         loss_first = tf.scalar_mul(0.5,
                                    tf.reduce_sum(
@@ -139,11 +127,11 @@ class DFI:
 
     def _phi_tf(self, img):
         # Start with first tensor
-        res = tf.reshape(self._tensors[0], [-1])
+        res = tf.reshape(self._conv_layer_tensors[0], [-1])
 
         # Concatenate the rest
         for i in range(1, self._num_layers):
-            tmp = tf.reshape(self._tensors[i], [-1])
+            tmp = tf.reshape(self._conv_layer_tensors[i], [-1])
             res = tf.concat(0, [res, tmp])
         return res
 
@@ -160,7 +148,7 @@ class DFI:
             input_images = imgs
 
         t0 = time()
-        ret = self._sess.run(self._tensors,
+        ret = self._sess.run(self._conv_layer_tensors,
                              feed_dict={
                                  self._nn.inputRGB: input_images
                              })
