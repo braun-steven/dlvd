@@ -41,7 +41,7 @@ def load_lfw_attributes():
 
     :return: Pandas dataframe containing the lfw attributes for each image
     """
-    path = './data/lfw_attributes.txt'
+    path = '../data/lfw_attributes.txt'
     df = pandas.read_csv(path, sep='\t')
 
     paths = []
@@ -54,7 +54,7 @@ def load_lfw_attributes():
         while len(img_idx) < 4:
             img_idx = '0' + img_idx
 
-        path = './data/lfw-deepfunneled/{0}/{0}_{1}.jpg'.format(name, img_idx)
+        path = '../data/lfw-deepfunneled/{0}/{0}_{1}.jpg'.format(name, img_idx)
         paths.append(path)
     df['path'] = paths
     del df['imagenum']
