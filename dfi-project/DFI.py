@@ -74,7 +74,7 @@ class DFI:
             initial_guess = np.array(start_img).reshape(-1)
 
             # Define loss
-            loss = self._minimize_z_tf(initial_guess, phi_z)
+            loss = self._minimize_z_tf(start_img, phi_z)
 
             # Run optimization steps in tensorflow
             optimizer = ScipyOptimizerInterface(loss, options={'maxiter': 10})
@@ -86,27 +86,28 @@ class DFI:
             for i in range(initial_guess.shape[0]):
                 bounds.append((0, 255))
 
-            # print('Starting minimize function')
-            # opt_res = minimize(fun=self._minimize_z,
-            #                    x0=initial_guess,
-            #                    args=(phi_z, self._lamb, self._beta),
-            #                    method='L-BFGS-B',
-            #                    options={
-            #                        # 'maxfun': 10,
-            #                        'disp': True,
-            #                        'eps': 5,
-            #                        'maxiter': 1
-            #                    },
-            #                    bounds=bounds
-            #                    )
+                # print('Starting minimize function')
+                # opt_res = minimize(fun=self._minimize_z,
+                #                    x0=initial_guess,
+                #                    args=(phi_z, self._lamb, self._beta),
+                #                    method='L-BFGS-B',
+                #                    options={
+                #                        # 'maxfun': 10,
+                #                        'disp': True,
+                #                        'eps': 5,
+                #                        'maxiter': 1
+                #                    },
+                #                    bounds=bounds
+                #                    )
 
     def _minimize_z_tf(self, initial_guess, phi_z):
+        # Init z with the initial guess
         tf_z = tf.Variable(initial_guess, 'z')
         tf_phi_z = tf.constant(phi_z)
         loss_first = tf.scalar_mul(0.5,
                                    tf.reduce_sum(
                                        tf.square(
-                                           tf.subtract(tf_z, tf_phi_z))))
+                                           tf.subtract(self._phi_tf(tf_z), tf_phi_z))))
         tv_loss = tf.scalar_mul(self._lamb,
                                 self._total_variation_regularization(tf_z, self._beta))
         loss = tf.add(loss_first, tv_loss)
@@ -131,6 +132,18 @@ class DFI:
         return tf.nn.conv2d(x, W, strides=strides, padding=p, name=name)
 
         pass
+
+    def _phi_tf(self, img):
+        assert isinstance(img, tf.Tensor)
+        # Start with first tensor
+        res = tf.reshape(self._tensors[0], -1)
+
+        # Concatenate the rest
+        for i in range(1, self._num_layers):
+            tmp = tf.reshape(self._tensors[i], -1)
+            res = tf.concat(0, [res, tmp])
+        return res
+
     def _phi(self, imgs):
         """Transform list of images into deep feature space
 
