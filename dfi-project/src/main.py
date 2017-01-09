@@ -1,4 +1,5 @@
 import argparse
+import os.path
 
 from __builtin__ import xrange
 
@@ -18,8 +19,16 @@ def parse_arg():
     parser.add_argument('--num_layers', '-n', default=3, type=int, help='Number of layers. One of {1,2,3}')
     args = vars(parser.parse_args())
 
+
+    # Check argument constraints
     if args['num_layers'] not in xrange(1, 4):
         raise argparse.ArgumentTypeError("%s is an invalid int value. (1 <= n <= 3)" % args['num_layers'])
+
+    if not os.path.exists(args['data_dir']):
+        raise argparse.ArgumentTypeError("Directory %s does not exist." % args['data_dir'])
+
+    if not os.path.exists(args['model_path']):
+        raise argparse.ArgumentTypeError("%File s does not exist." % args['model_path'])
 
     return args
 
