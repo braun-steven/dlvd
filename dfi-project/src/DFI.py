@@ -18,6 +18,7 @@ class DFI:
         self._num_layers = num_layers
         self._model = load_model(model_path)
         self._gpu = gpu
+        self._conv_layer_tensors = []
 
         self._tensor_names = ['conv3_1/Relu:0', 'conv4_1/Relu:0',
                               'conv5_1/Relu:0']
