@@ -1,16 +1,11 @@
-import os
-
-import numpy as np
-import pandas
-import tensorflow as tf
-from scipy.optimize import minimize
-from sklearn.neighbors import KNeighborsClassifier
-from tensorflow.contrib.opt import ScipyOptimizerInterface
 from time import time
 
-from vgg19 import Vgg19
+import tensorflow as tf
+from sklearn.neighbors import KNeighborsClassifier
+from tensorflow.contrib.opt import ScipyOptimizerInterface
 
-from utils import load_model
+from utils import *
+from vgg19 import Vgg19
 
 
 class DFI:
@@ -25,7 +20,8 @@ class DFI:
         self._model = load_model(model_path)
         self._gpu = gpu
 
-        self._tensor_names = ['conv3_1/Relu:0', 'conv4_1/Relu:0', 'conv5_1/Relu:0']
+        self._tensor_names = ['conv3_1/Relu:0', 'conv4_1/Relu:0',
+                              'conv5_1/Relu:0']
         self._sess = None
 
         # Set device
@@ -37,7 +33,10 @@ class DFI:
             with self._graph.as_default():
                 self._nn = Vgg19(model=self._model)
 
+        print('Initialization finished')
+
     def run(self, feat='No Beard', person_index=0):
+        print('Starting DFI')
         # Config for gpu
         config = tf.ConfigProto()
         if self._gpu:
@@ -46,9 +45,11 @@ class DFI:
 
         # Run the graph in the session.
         with tf.Session(graph=self._graph, config=config) as self._sess:
-            tf.global_variables_initializer().run()
+            self._sess.run(tf.global_variables_initializer())
 
-            self._tensors = [self._graph.get_tensor_by_name(self._tensor_names[idx]) for idx in range(self._num_layers)]
+            self._tensors = [
+                self._graph.get_tensor_by_name(self._tensor_names[idx]) for idx
+                in range(self._num_layers)]
 
             atts = load_discrete_lfw_attributes()
             imgs_path = atts['path'].values
@@ -66,7 +67,8 @@ class DFI:
             neg_deep_features = self._phi(neg_imgs)
 
             # Calc W
-            w = np.mean(pos_deep_features, axis=0) - np.mean(neg_deep_features, axis=0)
+            w = np.mean(pos_deep_features, axis=0) - np.mean(neg_deep_features,
+                                                             axis=0)
             w /= np.linalg.norm(w)
 
             # Calc phi(z)
@@ -79,8 +81,8 @@ class DFI:
 
             # Run optimization steps in tensorflow
             optimizer = ScipyOptimizerInterface(loss, options={'maxiter': 10})
-            with tf.Session() as session:
-                optimizer.minimize(session)
+            self._sess.run(tf.global_variables_initializer())
+            optimizer.minimize(self._sess)
 
             # Create bounds
             bounds = []
@@ -103,14 +105,16 @@ class DFI:
 
     def _minimize_z_tf(self, initial_guess, phi_z):
         # Init z with the initial guess
-        tf_z = tf.Variable(initial_guess, 'z')
-        tf_phi_z = tf.constant(phi_z)
+        tf_z = tf.Variable(initial_guess, 'z', dtype=tf.float32)
+        tf_phi_z = tf.constant(phi_z, dtype=tf.float32)
         loss_first = tf.scalar_mul(0.5,
                                    tf.reduce_sum(
                                        tf.square(
-                                           tf.subtract(self._phi_tf(tf_z), tf_phi_z))))
+                                           tf.subtract(self._phi_tf(tf_z),
+                                                       tf_phi_z))))
         tv_loss = tf.scalar_mul(self._lamb,
-                                self._total_variation_regularization(tf_z, self._beta))
+                                self._total_variation_regularization(tf_z,
+                                                                     self._beta))
         loss = tf.add(loss_first, tv_loss)
         return loss
 
@@ -118,30 +122,28 @@ class DFI:
         """ Idea from:
         https://github.com/antlerros/tensorflow-fast-neuralstyle/blob/master/net.py
         """
-        assert isinstance(x, tf.Tensor)
         wh = tf.constant([[[[1], [1], [1]]], [[[-1], [-1], [-1]]]], tf.float32)
         ww = tf.constant([[[[1], [1], [1]], [[-1], [-1], [-1]]]], tf.float32)
         tvh = lambda x: self._conv2d(x, wh, p='SAME')
         tvw = lambda x: self._conv2d(x, ww, p='SAME')
         dh = tvh(x)
         dw = tvw(x)
-        tv = (tf.add(tf.reduce_sum(dh ** 2, [1, 2, 3]), tf.reduce_sum(dw ** 2, [1, 2, 3]))) ** (beta / 2.)
+        tv = (tf.add(tf.reduce_sum(dh ** 2, [1, 2, 3]),
+                     tf.reduce_sum(dw ** 2, [1, 2, 3]))) ** (beta / 2.)
         return tv
 
     def _conv2d(self, x, W, strides=[1, 1, 1, 1], p='SAME', name=None):
-        assert isinstance(x, tf.Tensor)
+        new_shape = tf.TensorShape([tf.Dimension(1)] + x.get_shape().dims)
+        x = tf.reshape(x, new_shape)
         return tf.nn.conv2d(x, W, strides=strides, padding=p, name=name)
 
-        pass
-
     def _phi_tf(self, img):
-        assert isinstance(img, tf.Tensor)
         # Start with first tensor
-        res = tf.reshape(self._tensors[0], -1)
+        res = tf.reshape(self._tensors[0], [-1])
 
         # Concatenate the rest
         for i in range(1, self._num_layers):
-            tmp = tf.reshape(self._tensors[i], -1)
+            tmp = tf.reshape(self._tensors[i], [-1])
             res = tf.concat(0, [res, tmp])
         return res
 
@@ -172,7 +174,8 @@ class DFI:
 
             # Append all layer results to a (M,) vector
             for layer_idx in range(self._num_layers):
-                phi_img = np.append(phi_img, ret[layer_idx][img_idx].reshape(-1))
+                phi_img = np.append(phi_img,
+                                    ret[layer_idx][img_idx].reshape(-1))
 
             res.append(phi_img)
 
@@ -239,7 +242,8 @@ class DFI:
         knn = KNeighborsClassifier(n_jobs=4)
         dummy_target = [0 for x in range(subset.shape[0])]
         knn.fit(X=subset.as_matrix(), y=dummy_target)
-        knn_indices = knn.kneighbors(person.as_matrix(), n_neighbors=self._k, return_distance=False)[0]
+        knn_indices = knn.kneighbors(person.as_matrix(), n_neighbors=self._k,
+                                     return_distance=False)[0]
 
         neighbor_paths = paths.iloc[knn_indices]
 
