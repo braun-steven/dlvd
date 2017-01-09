@@ -84,6 +84,7 @@ class DFI:
             # Run optimization steps in tensorflow
             optimizer = ScipyOptimizerInterface(loss, options={'maxiter': 10})
             self._sess.run(tf.global_variables_initializer())
+            print('Starting minimization')
             optimizer.minimize(self._sess)
 
             # Obtain Z
@@ -95,14 +96,13 @@ class DFI:
     def _minimize_z_tf(self, initial_guess, phi_z, tf_z):
         # Init z with the initial guess
         tf_phi_z = tf.constant(phi_z, dtype=tf.float32)
-        loss_first = tf.scalar_mul(0.5,
-                                   tf.reduce_sum(
-                                       tf.square(
-                                           tf.subtract(self._phi_tf(tf_z),
-                                                       tf_phi_z))))
-        tv_loss = tf.scalar_mul(self._lamb,
-                                self._total_variation_regularization(tf_z,
-                                                                     self._beta))
+        phi_tf = self._phi_tf(tf_z)
+        subtract = tf.subtract(phi_tf, tf_phi_z)
+        square = tf.square(subtract)
+        reduce_sum = tf.reduce_sum(square)
+        loss_first = tf.scalar_mul(0.5, reduce_sum)
+        regularization = self._total_variation_regularization(tf_z, self._beta)
+        tv_loss = tf.scalar_mul(self._lamb, regularization)
         loss = tf.add(loss_first, tv_loss)
         return loss
 
