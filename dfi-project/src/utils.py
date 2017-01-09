@@ -35,13 +35,12 @@ def print_prediction(pred, label_file_path, img_path=None):
         print([(synset[indices[i]], pred[indices[i]]) for i in range(5)])
 
 
-
-def load_lfw_attributes():
+def load_lfw_attributes(data_dir):
     """Loads the lfw attribute file
 
     :return: Pandas dataframe containing the lfw attributes for each image
     """
-    path = '../data/lfw_attributes.txt'
+    path = '{}/lfw_attributes.txt'.format(data_dir)
     df = pandas.read_csv(path, sep='\t')
 
     paths = []
@@ -54,19 +53,19 @@ def load_lfw_attributes():
         while len(img_idx) < 4:
             img_idx = '0' + img_idx
 
-        path = '../data/lfw-deepfunneled/{0}/{0}_{1}.jpg'.format(name, img_idx)
+        path = '{}/lfw-deepfunneled/{0}/{0}_{1}.jpg'.format(data_dir, name, img_idx)
         paths.append(path)
     df['path'] = paths
     del df['imagenum']
     return df
 
 
-def load_discrete_lfw_attributes():
+def load_discrete_lfw_attributes(data_dir):
     """Loads the discretized lfw attributes
 
     :return: Discretized lfw attributes
     """
-    df = load_lfw_attributes()
+    df = load_lfw_attributes(data_dir)
 
     for column in df:
         if column == 'person' or column == 'path':

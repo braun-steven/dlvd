@@ -8,8 +8,12 @@ from vgg19 import Vgg19
 
 
 class DFI:
+    """
+
+    """
     def __init__(self, k=10, alpha=0.4, lamb=0.001, beta=2,
-                 model_path="../model/vgg19.npy", num_layers=3, gpu=True):
+                 model_path="./model/vgg19.npy", num_layers=3,
+                 gpu=True, data_dir='./data'):
         # Set variables
         self._k = k
         self._alpha = alpha
@@ -19,6 +23,8 @@ class DFI:
         self._model = load_model(model_path)
         self._gpu = gpu
         self._conv_layer_tensors = []
+        self._data_dir = data_dir
+
 
         self._tensor_names = ['conv3_1/Relu:0', 'conv4_1/Relu:0',
                               'conv5_1/Relu:0']
@@ -77,27 +83,29 @@ class DFI:
             initial_guess = np.array(start_img).reshape(-1)
 
             # Variable which is to be optimized
-            tf_z = tf.Variable(initial_guess, 'z', dtype=tf.float32)
+            tf_z = tf.Variable(start_img, 'z', dtype=tf.float32)
 
             # Define loss
-            loss = self._minimize_z_tf(start_img, phi_z, tf_z)
+            loss = self._minimize_z_tensor(phi_z, tf_z)
 
             # Run optimization steps in tensorflow
             optimizer = ScipyOptimizerInterface(loss, options={'maxiter': 10})
             self._sess.run(tf.global_variables_initializer())
             print('Starting minimization')
-            optimizer.minimize(self._sess)
+            optimizer.minimize(self._sess, feed_dict={
+                self._nn.inputRGB: [start_img]
+            })
 
             # Obtain Z
             z = self._sess.run(tf_z)
 
             # Dump result to 'z.npy'
-            np.array(z).save('z.npy')
+            np.save('z', z)
 
-    def _minimize_z_tf(self, initial_guess, phi_z, tf_z):
+    def _minimize_z_tensor(self, phi_z, tf_z):
         # Init z with the initial guess
         tf_phi_z = tf.constant(phi_z, dtype=tf.float32)
-        phi_tf = self._phi_tf(tf_z)
+        phi_tf = self._phi_tensor(tf_z)
         subtract = tf.subtract(phi_tf, tf_phi_z)
         square = tf.square(subtract)
         reduce_sum = tf.reduce_sum(square)
@@ -126,7 +134,7 @@ class DFI:
         x = tf.reshape(x, new_shape)
         return tf.nn.conv2d(x, W, strides=strides, padding=p, name=name)
 
-    def _phi_tf(self, img):
+    def _phi_tensor(self, img):
         # Start with first tensor
         res = tf.reshape(self._conv_layer_tensors[0], [-1])
 
