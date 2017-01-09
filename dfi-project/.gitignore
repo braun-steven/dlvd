@@ -152,5 +152,4 @@ ENV/
 
 # End of https://www.gitignore.io/api/intellij+iml,python
 
-vgg19.npy
 env

@@ -1,20 +1,21 @@
-from time import time
+import os
 
 import numpy as np
 import pandas
 import tensorflow as tf
-import os
-
-from tensorflow.contrib.opt import ScipyOptimizerInterface
-
-from utils import *
-from vgg19 import Vgg19
-from sklearn.neighbors import KNeighborsClassifier
 from scipy.optimize import minimize
+from sklearn.neighbors import KNeighborsClassifier
+from tensorflow.contrib.opt import ScipyOptimizerInterface
+from time import time
+
+from vgg19 import Vgg19
+
+from utils import load_model
 
 
 class DFI:
-    def __init__(self, k=10, alpha=0.4, lamb=0.001, beta=2, model_path="vgg19.npy", num_layers=3, gpu=True):
+    def __init__(self, k=10, alpha=0.4, lamb=0.001, beta=2,
+                 model_path="../model/vgg19.npy", num_layers=3, gpu=True):
         # Set variables
         self._k = k
         self._alpha = alpha
