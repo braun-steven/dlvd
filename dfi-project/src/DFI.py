@@ -58,7 +58,7 @@ class DFI:
                 self._graph.get_tensor_by_name(self._tensor_names[idx]) for idx
                 in range(self._num_layers)]
 
-            atts = load_discrete_lfw_attributes()
+            atts = load_discrete_lfw_attributes(self._data_dir)
             imgs_path = atts['path'].values
             start_img = reduce_img_size(load_images(*[imgs_path[0]]))[0]
 
