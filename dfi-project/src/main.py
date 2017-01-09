@@ -1,7 +1,8 @@
+import argparse
+
 from __builtin__ import xrange
 
 from DFI import DFI
-import argparse
 
 
 def parse_arg():

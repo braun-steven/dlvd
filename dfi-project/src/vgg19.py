@@ -132,7 +132,7 @@ class Vgg19:
             blue - _VGG_MEAN[0],
             green - _VGG_MEAN[1],
             red - _VGG_MEAN[2],
-            ])
+        ])
 
         # Setup the VGG-Net graph.
         # Size: 224x224x64

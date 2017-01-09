@@ -1,7 +1,8 @@
+from time import time
+
 import tensorflow as tf
 from sklearn.neighbors import KNeighborsClassifier
 from tensorflow.contrib.opt import ScipyOptimizerInterface
-from time import time
 
 from utils import *
 from vgg19 import Vgg19
@@ -11,6 +12,7 @@ class DFI:
     """
 
     """
+
     def __init__(self, k=10, alpha=0.4, lamb=0.001, beta=2,
                  model_path="./model/vgg19.npy", num_layers=3,
                  gpu=True, data_dir='./data'):
@@ -24,7 +26,6 @@ class DFI:
         self._gpu = gpu
         self._conv_layer_tensors = []
         self._data_dir = data_dir
-
 
         self._tensor_names = ['conv3_1/Relu:0', 'conv4_1/Relu:0',
                               'conv5_1/Relu:0']
