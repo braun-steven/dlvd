@@ -1,7 +1,6 @@
 from time import time
 
 import tensorflow as tf
-from __builtin__ import xrange
 from sklearn.neighbors import KNeighborsClassifier
 from tensorflow.contrib.opt import ScipyOptimizerInterface
 
@@ -172,7 +171,7 @@ class DFI:
         res = tf.reshape(self._conv_layer_tensors[0], [-1])
 
         # Concatenate the rest
-        for i in xrange(1, self._num_layers):
+        for i in np.arange(1, self._num_layers):
             tmp = tf.reshape(self._conv_layer_tensors[i], [-1])
             res = tf.concat(0, [res, tmp])
         return res

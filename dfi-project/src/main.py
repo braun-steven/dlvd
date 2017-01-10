@@ -1,8 +1,6 @@
 import argparse
 import os.path
-
-from __builtin__ import xrange
-
+import numpy as np
 from DFI import DFI
 
 
@@ -21,7 +19,7 @@ def parse_arg():
 
 
     # Check argument constraints
-    if args['num_layers'] not in xrange(1, 4):
+    if args['num_layers'] not in np.arange(1, 4):
         raise argparse.ArgumentTypeError("%s is an invalid int value. (1 <= n <= 3)" % args['num_layers'])
 
     if not os.path.exists(args['data_dir']):
