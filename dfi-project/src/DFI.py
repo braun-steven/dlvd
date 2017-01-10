@@ -17,7 +17,7 @@ class DFI:
 
     def __init__(self, k=10, alpha=0.4, lamb=0.001, beta=2,
                  model_path="./model/vgg19.npy", num_layers=3,
-                 gpu=True, data_dir='./data'):
+                 gpu=True, data_dir='./data', **kwargs):
         """
         Initialize the DFI procedure
         :param k: Number of nearest neighbours
@@ -40,7 +40,8 @@ class DFI:
         self._conv_layer_tensors = []
         self._data_dir = data_dir
 
-        self._tensor_names = ['conv3_1/Relu:0', 'conv4_1/Relu:0',
+        self._tensor_names = ['conv3_1/Relu:0',
+                              'conv4_1/Relu:0',
                               'conv5_1/Relu:0']
         self._sess = None
 
@@ -104,9 +105,8 @@ class DFI:
                 # Calc phi(z)
                 phi_z = self._phi(start_img) + self._alpha * w
 
-
                 phi_z_tensor = tf.constant(phi_z, dtype=tf.float32,
-                                     name='phi_x_alpha_w')
+                                           name='phi_x_alpha_w')
 
                 # Variable which is to be optimized
                 z = tf.Variable(start_img, dtype=tf.float32, name='z')
@@ -304,10 +304,13 @@ class DFI:
 
         return neighbor_paths
 
-    def attributes(self):
+    def features(self):
         """
         Generate a list of possible attributes to choose from
         :return: List of attributes
         """
-        print('TODO: Implement')
-        pass
+
+        atts = load_lfw_attributes(self._data_dir)
+        del atts['path']
+        del atts['person']
+        return atts.columns.values
