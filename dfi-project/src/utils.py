@@ -53,7 +53,8 @@ def load_lfw_attributes(data_dir):
         while len(img_idx) < 4:
             img_idx = '0' + img_idx
 
-        path = '{}/lfw-deepfunneled/{0}/{0}_{1}.jpg'.format(data_dir, name, img_idx)
+        path = '{0}/lfw-deepfunneled/{1}/{1}_{2}.jpg'.format(data_dir, name,
+                                                             img_idx)
         paths.append(path)
     df['path'] = paths
     del df['imagenum']
