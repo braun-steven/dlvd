@@ -69,76 +69,82 @@ class DFI:
             config.gpu_options.allow_growth = False
             config.gpu_options.per_process_gpu_memory_fraction = 0.80
 
-        # Run the graph in the session.
-        with tf.Session(graph=self._graph, config=config) as self._sess:
-            self._sess.run(tf.global_variables_initializer())
+        # Name-scope for tensorboard
+        with tf.name_scope('DFI-Graph') as scope:
+            # Run the graph in the session.
+            with tf.Session(graph=self._graph, config=config) as self._sess:
+                self._sess.run(tf.global_variables_initializer())
 
-            self._conv_layer_tensors = [
-                self._graph.get_tensor_by_name(self._tensor_names[idx]) for idx
-                in range(self._num_layers)]
+                self._conv_layer_tensors = [
+                    self._graph.get_tensor_by_name(self._tensor_names[idx]) for
+                    idx
+                    in range(self._num_layers)]
 
-            atts = load_discrete_lfw_attributes(self._data_dir)
-            imgs_path = atts['path'].values
-            start_img = reduce_img_size(load_images(*[imgs_path[0]]))[0]
+                atts = load_discrete_lfw_attributes(self._data_dir)
+                imgs_path = atts['path'].values
+                start_img = reduce_img_size(load_images(*[imgs_path[0]]))[0]
 
-            # Get image paths
-            pos_paths, neg_paths = self._get_sets(atts, feat, person_index)
+                # Get image paths
+                pos_paths, neg_paths = self._get_sets(atts, feat, person_index)
 
-            # Reduce image sizes
-            pos_imgs = reduce_img_size(load_images(*pos_paths))
-            neg_imgs = reduce_img_size(load_images(*neg_paths))
+                # Reduce image sizes
+                pos_imgs = reduce_img_size(load_images(*pos_paths))
+                neg_imgs = reduce_img_size(load_images(*neg_paths))
 
-            # Get pos/neg deep features
-            pos_deep_features = self._phi(pos_imgs)
-            neg_deep_features = self._phi(neg_imgs)
+                # Get pos/neg deep features
+                pos_deep_features = self._phi(pos_imgs)
+                neg_deep_features = self._phi(neg_imgs)
 
-            # Calc W
-            w = np.mean(pos_deep_features, axis=0) - np.mean(neg_deep_features,
-                                                             axis=0)
-            w /= np.linalg.norm(w)
+                # Calc W
+                w = np.mean(pos_deep_features, axis=0) - np.mean(
+                    neg_deep_features,
+                    axis=0)
+                w /= np.linalg.norm(w)
 
-            # Calc phi(z)
-            phi_z = self._phi(start_img) + self._alpha * w
+                # Calc phi(z)
+                phi_z = self._phi(start_img) + self._alpha * w
 
-            initial_guess = np.array(start_img).reshape(-1)
 
-            # Variable which is to be optimized
-            tf_z = tf.Variable(start_img, 'z', dtype=tf.float32)
+                phi_z_tensor = tf.constant(phi_z, dtype=tf.float32,
+                                     name='phi_x_alpha_w')
 
-            # Define loss
-            loss = self._minimize_z_tensor(phi_z, tf_z)
+                # Variable which is to be optimized
+                z = tf.Variable(start_img, dtype=tf.float32, name='z')
 
-            # Run optimization steps in tensorflow
-            optimizer = ScipyOptimizerInterface(loss, options={'maxiter': 10})
-            self._sess.run(tf.global_variables_initializer())
-            print('Starting minimization')
-            optimizer.minimize(self._sess, feed_dict={
-                self._nn.inputRGB: [start_img]
-            })
+                # Define loss
+                loss = self._minimize_z_tensor(phi_z_tensor, z)
 
-            # Obtain Z
-            z = self._sess.run(tf_z)
+                # Run optimization steps in tensorflow
+                optimizer = ScipyOptimizerInterface(loss,
+                                                    options={'maxiter': 10})
+                self._sess.run(tf.global_variables_initializer())
+                print('Starting minimization')
+                optimizer.minimize(self._sess, feed_dict={
+                    self._nn.inputRGB: [start_img]
+                })
 
-            # Dump result to 'z.npy'
-            np.save('z', z)
+                # Obtain Z
+                z_result = self._sess.run(z)
 
-    def _minimize_z_tensor(self, phi_z, tf_z):
+                # Dump result to 'z.npy'
+                np.save('z', z_result)
+
+    def _minimize_z_tensor(self, phi_z, z):
         """
         Objective function implemented with tensors
         :param phi_z: phi(x) + alpha*w
-        :param tf_z: Variable
+        :param z: Variable
         :return: loss
         """
         # Init z with the initial guess
-        tf_phi_z = tf.constant(phi_z, dtype=tf.float32)
-        phi_tf = self._phi_tensor()
-        subtract = tf.subtract(phi_tf, tf_phi_z)
+        phi_z_prime = self._phi_tensor()
+        subtract = tf.subtract(phi_z_prime, phi_z)
         square = tf.square(subtract)
         reduce_sum = tf.reduce_sum(square)
         loss_first = tf.scalar_mul(0.5, reduce_sum)
-        regularization = self._total_variation_regularization(tf_z, self._beta)
+        regularization = self._total_variation_regularization(z, self._beta)
         tv_loss = tf.scalar_mul(self._lamb, regularization)
-        loss = tf.add(loss_first, tv_loss)
+        loss = tf.add(loss_first, tv_loss, name='loss')
         return loss
 
     def _total_variation_regularization(self, x, beta=1):
@@ -167,8 +173,8 @@ class DFI:
         Implementation of the deep feature function in tensorflow
         :return: tensor of z in the deep feature space
         """
-        # Start with first tensor
-        res = tf.reshape(self._conv_layer_tensors[0], [-1])
+        # Start with first layer tensor
+        res = tf.reshape(self._conv_layer_tensors[0], [-1], name='phi_z')
 
         # Concatenate the rest
         for i in np.arange(1, self._num_layers):
