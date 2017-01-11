@@ -23,10 +23,11 @@ def parse_arg():
     parser.add_argument('--feature', '-f', default='No Beard', type=str,
                         help='Name of the Feature.')
     parser.add_argument('--person_index', '-p', default=0, type=int,
-                        help="Index of the start image")
+                        help="Index of the start image.")
     parser.add_argument('--list_features', '-l', default=False,
                         action='store_true', help='List all available '
                                                   'features.')
+    parser.add_argument('--tf', )
     args = vars(parser.parse_args())
 
     # Check argument constraints

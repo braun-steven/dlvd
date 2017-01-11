@@ -3,7 +3,7 @@ from time import time
 import tensorflow as tf
 from sklearn.neighbors import KNeighborsClassifier
 from tensorflow.contrib.opt import ScipyOptimizerInterface
-
+from scipy.optimize import minimize
 from utils import *
 from vgg19 import Vgg19
 
@@ -56,7 +56,7 @@ class DFI:
 
         print('Initialization finished')
 
-    def run(self, feat='No Beard', person_index=0):
+    def run(self, feat='No Beard', person_index=0, tf=True):
         """
 
         :param feat: Attribute
@@ -69,6 +69,7 @@ class DFI:
         if self._gpu:
             config.gpu_options.allow_growth = False
             config.gpu_options.per_process_gpu_memory_fraction = 0.80
+            config.log_device_placement = True
 
         # Name-scope for tensorboard
         with tf.name_scope('DFI-Graph') as scope:
@@ -105,29 +106,57 @@ class DFI:
                 # Calc phi(z)
                 phi_z = self._phi(start_img) + self._alpha * w
 
-                phi_z_tensor = tf.constant(phi_z, dtype=tf.float32,
-                                           name='phi_x_alpha_w')
 
-                # Variable which is to be optimized
-                z = tf.Variable(start_img, dtype=tf.float32, name='z')
+                if tf:
 
-                # Define loss
-                loss = self._minimize_z_tensor(phi_z_tensor, z)
 
-                # Run optimization steps in tensorflow
-                optimizer = ScipyOptimizerInterface(loss,
-                                                    options={'maxiter': 10})
-                self._sess.run(tf.global_variables_initializer())
-                print('Starting minimization')
-                optimizer.minimize(self._sess, feed_dict={
-                    self._nn.inputRGB: [start_img]
-                })
+                    phi_z_tensor = tf.constant(phi_z, dtype=tf.float32,
+                                               name='phi_x_alpha_w')
 
-                # Obtain Z
-                z_result = self._sess.run(z)
+                    # Variable which is to be optimized
+                    z = tf.Variable(start_img, dtype=tf.float32, name='z')
 
-                # Dump result to 'z.npy'
-                np.save('z', z_result)
+                    # Define loss
+                    loss = self._minimize_z_tensor(phi_z_tensor, z)
+
+                    # Run optimization steps in tensorflow
+                    optimizer = ScipyOptimizerInterface(loss,
+                                                        options={'maxiter': 10})
+                    self._sess.run(tf.global_variables_initializer())
+                    print('Starting minimization')
+                    optimizer.minimize(self._sess, feed_dict={
+                        self._nn.inputRGB: [start_img]
+                    })
+
+                    # Obtain Z
+                    z_result = self._sess.run(z)
+
+                    # Dump result to 'z.npy'
+                    np.save('z', z_result)
+
+                else:
+
+                    initial_guess = np.array(start_img).reshape(-1)
+
+                    # Create bounds
+                    bounds = []
+                    for i in range(initial_guess.shape[0]):
+                        bounds.append((0, 255))
+
+                    print('Starting minimize function')
+                    opt_res = minimize(fun=self._minimize_z,
+                                       x0=start_img,
+                                       args=(phi_z, self._lamb, self._beta),
+                                       method='L-BFGS-B',
+                                       options={
+                                           # 'maxfun': 10,
+                                           'disp': True,
+                                           'eps': 5,
+                                           'maxiter': 1
+                                       },
+                                       bounds=bounds
+                                       )
+                    np.save('z', opt_res.x)
 
     def _minimize_z_tensor(self, phi_z, z):
         """
