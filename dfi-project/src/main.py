@@ -27,7 +27,8 @@ def parse_arg():
     parser.add_argument('--list_features', '-l', default=False,
                         action='store_true', help='List all available '
                                                   'features.')
-    parser.add_argument('--tf', )
+    parser.add_argument('--tf', default=True, action='store_true',
+                        help="Use Tensorflow for the optimization step")
     args = vars(parser.parse_args())
 
     # Check argument constraints

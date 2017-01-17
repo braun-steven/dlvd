@@ -1,9 +1,10 @@
 from time import time
 
 import tensorflow as tf
+from scipy.optimize import minimize
 from sklearn.neighbors import KNeighborsClassifier
 from tensorflow.contrib.opt import ScipyOptimizerInterface
-from scipy.optimize import minimize
+
 from utils import *
 from vgg19 import Vgg19
 
@@ -40,15 +41,18 @@ class DFI:
         self._conv_layer_tensors = []
         self._data_dir = data_dir
 
-        self._tensor_names = ['conv3_1/Relu:0',
-                              'conv4_1/Relu:0',
-                              'conv5_1/Relu:0']
+        self._conv_layer_tensor_names = ['conv3_1/Relu:0',
+                                         'conv4_1/Relu:0',
+                                         'conv5_1/Relu:0']
         self._sess = None
 
         # Set device
         device = '/gpu:0' if self._gpu else '/cpu:0'
 
+        print('Using device: {}'.format(device))
+
         # Setup
+        print('Setting up tf.device and tf.Graph')
         with tf.device(device):
             self._graph = tf.Graph()
             with self._graph.as_default():
@@ -56,7 +60,7 @@ class DFI:
 
         print('Initialization finished')
 
-    def run(self, feat='No Beard', person_index=0, tf=True):
+    def run(self, feat='No Beard', person_index=0, use_tf=True):
         """
 
         :param feat: Attribute
@@ -78,7 +82,8 @@ class DFI:
                 self._sess.run(tf.global_variables_initializer())
 
                 self._conv_layer_tensors = [
-                    self._graph.get_tensor_by_name(self._tensor_names[idx]) for
+                    self._graph.get_tensor_by_name(
+                        self._conv_layer_tensor_names[idx]) for
                     idx
                     in range(self._num_layers)]
 
@@ -106,9 +111,7 @@ class DFI:
                 # Calc phi(z)
                 phi_z = self._phi(start_img) + self._alpha * w
 
-
-                if tf:
-
+                if use_tf:
 
                     phi_z_tensor = tf.constant(phi_z, dtype=tf.float32,
                                                name='phi_x_alpha_w')
