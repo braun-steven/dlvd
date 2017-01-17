@@ -57,6 +57,7 @@ def main():
     args = parse_arg()
 
     # Init DFI
+    print('Creating DFI Object')
     dfi = DFI(**args)
 
     # List features

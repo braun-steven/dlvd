@@ -83,4 +83,5 @@ def reduce_img_size(imgs):
 
 
 def load_model(model_path):
+    print('Loading model at {}'.format(model_path))
     return np.load(model_path, encoding='latin1').item()
