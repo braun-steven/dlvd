@@ -10,6 +10,7 @@ def parse_arg():
     """Parse commandline arguments
     :return: argument dict
     """
+    print('Parsing arguments')
     parser = argparse.ArgumentParser('Deep Feature Interpolation')
     parser.add_argument('--data_dir', '-d', default='data', type=str,
                         help='Path to data directory containing the images')
