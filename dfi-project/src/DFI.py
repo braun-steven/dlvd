@@ -112,54 +112,50 @@ class DFI:
                 phi_z = self._phi(start_img) + self._alpha * w
 
                 if use_tf:
-
-                    phi_z_tensor = tf.constant(phi_z, dtype=tf.float32,
-                                               name='phi_x_alpha_w')
-
-                    # Variable which is to be optimized
-                    z = tf.Variable(start_img, dtype=tf.float32, name='z')
-
-                    # Define loss
-                    loss = self._minimize_z_tensor(phi_z_tensor, z)
-
-                    # Run optimization steps in tensorflow
-                    optimizer = ScipyOptimizerInterface(loss,
-                                                        options={'maxiter': 10})
-                    self._sess.run(tf.global_variables_initializer())
-                    print('Starting minimization')
-                    optimizer.minimize(self._sess, feed_dict={
-                        self._nn.inputRGB: [start_img]
-                    })
-
-                    # Obtain Z
-                    z_result = self._sess.run(z)
-
-                    # Dump result to 'z.npy'
-                    np.save('z', z_result)
-
+                    self.optimize_z_tf(phi_z, start_img)
                 else:
+                    self.optimize_z_cpu(phi_z, start_img)
 
-                    initial_guess = np.array(start_img).reshape(-1)
+    def optimize_z_cpu(self, phi_z, start_img):
+        initial_guess = np.array(start_img).reshape(-1)
+        # Create bounds
+        bounds = []
+        for i in range(initial_guess.shape[0]):
+            bounds.append((0, 255))
+        print('Starting minimize function')
+        opt_res = minimize(fun=self._minimize_z,
+                           x0=start_img,
+                           args=(phi_z, self._lamb, self._beta),
+                           method='L-BFGS-B',
+                           options={
+                               # 'maxfun': 10,
+                               'disp': True,
+                               'eps': 5,
+                               'maxiter': 1
+                           },
+                           bounds=bounds
+                           )
+        np.save('z', opt_res.x)
 
-                    # Create bounds
-                    bounds = []
-                    for i in range(initial_guess.shape[0]):
-                        bounds.append((0, 255))
-
-                    print('Starting minimize function')
-                    opt_res = minimize(fun=self._minimize_z,
-                                       x0=start_img,
-                                       args=(phi_z, self._lamb, self._beta),
-                                       method='L-BFGS-B',
-                                       options={
-                                           # 'maxfun': 10,
-                                           'disp': True,
-                                           'eps': 5,
-                                           'maxiter': 1
-                                       },
-                                       bounds=bounds
-                                       )
-                    np.save('z', opt_res.x)
+    def optimize_z_tf(self, phi_z, start_img):
+        phi_z_tensor = tf.constant(phi_z, dtype=tf.float32,
+                                   name='phi_x_alpha_w')
+        # Variable which is to be optimized
+        z = tf.Variable(start_img, dtype=tf.float32, name='z')
+        # Define loss
+        loss = self._minimize_z_tensor(phi_z_tensor, z)
+        # Run optimization steps in tensorflow
+        optimizer = ScipyOptimizerInterface(loss,
+                                            options={'maxiter': 10})
+        self._sess.run(tf.global_variables_initializer())
+        print('Starting minimization')
+        optimizer.minimize(self._sess, feed_dict={
+            self._nn.inputRGB: [start_img]
+        })
+        # Obtain Z
+        z_result = self._sess.run(z)
+        # Dump result to 'z.npy'
+        np.save('z', z_result)
 
     def _minimize_z_tensor(self, phi_z, z):
         """
