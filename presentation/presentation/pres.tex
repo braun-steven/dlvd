@@ -11,6 +11,7 @@
 \usetikzlibrary{arrows,shapes,trees,decorations.pathreplacing,fit,calc}
 \usetikzlibrary{positioning}
 \usetikzlibrary{arrows}
+\usetikzlibrary{arrows.meta}
 \usepackage{listings}
 
 \usepackage[T1]{fontenc}
@@ -79,6 +80,8 @@
 
 \section{Motivation}
 
+
+
 \begin{frame}{Motivation}
 		\begin{minipage}{.5\textwidth}
 			\centering
@@ -97,9 +100,11 @@
 
 \begin{frame}{Basic Idea}
 	How to get the attribute in deep-feature-space?
+	\pause
 	\begin{itemize}
-		\item Let $\phi(x)$ be the mapping from pixel-space into deep-feature-space by concatenating some layers
+		\item Let $\phi(x)$ be the mapping from pixel-space into deep-feature-space by concatenating an arbitrary number of layers
 		\begin{center}
+			\pause
 			\input{../tikz/layers.tex}	
 		\end{center}
 	\end{itemize}
@@ -109,19 +114,35 @@
 	\begin{itemize}
 		\item Take $k$ nearest neighbor images with existing attribute: $S^+$
 		\item Take $k$ nearest neighbor images with missing attribute: $S^-$
+		\vfill
+		\pause
+		
 		\item $\phi^+ = \phi(S^+)$ and $\phi^- = \phi(S^-)$
 		\item Build the mean $\overline{\phi^+}$ and $\overline{\phi^-}$
-		\item Representation of attribute $w=\overline{\phi^+}-\overline{\phi^-}$
+		\vfill
+		\pause 
+		
+		\item Representation of attribute: $w=\overline{\phi^+}-\overline{\phi^-}$
 	\end{itemize}
 \end{frame}
 
 \begin{frame}{Basic Idea}
 	How to get the output picture?
+	
+	\vfill
+	\pause
+	
 	\begin{itemize}
 		\item $\phi(z) = \phi(x) + \alpha w$
-		\item Reverse mapping of $\phi(z)$ into pixel space
-		\item $\tilde{z} = \underset{\tilde{z}}{\mathrm{argmin}} \frac{1}{2} ||\phi(z)-\phi(\tilde{z})||_2^2 + \lambda R_{\beta}(\tilde{z})$ 
-		\item with $R_{\beta}(\tilde{z}) = \sum_{i,j}((\tilde{z}_{i,j+1}-\tilde{z}_{i,j})^2 + (\tilde{z}_{i+1,j}-\tilde{z}_{i,j})^2)^{\frac{\beta}{2}}$
+		\item Reverse mapping of $\phi(z)$ into pixel space:
+		
+		\vfill
+		\pause
+		\begin{itemize}
+			\item $\tilde{z} = \underset{\tilde{z}}{\mathrm{argmin}} \frac{1}{2} ||\phi(z)-\phi(\tilde{z})||_2^2 + \lambda R_{\beta}(\tilde{z})$ 
+			\item with $R_{\beta}(\tilde{z}) = \sum_{i,j}((\tilde{z}_{i,j+1}-\tilde{z}_{i,j})^2 + (\tilde{z}_{i+1,j}-\tilde{z}_{i,j})^2)^{\frac{\beta}{2}}$
+		\end{itemize}
+		
 		 
 	\end{itemize}
 	
@@ -129,9 +150,10 @@
 
 \begin{frame}{Practical}
 	\begin{itemize}
-		\item Model VGG 19 trained on LFW dataset
-		\item Used for $\phi(x)$ the third, fourth and fifth Relu Layer
-		\item For regularization used $\beta=2$ and $\lambda = 0.001$ 
+		\item Model VGG19 pretrained on IMAGENET dataset
+		\item $\phi(x)$ using the third, fourth and fifth Relu Layer
+		\item $\beta=2$ and $\lambda = 0.001$ for the regularization term
+		\item Tests were run against the LFW dataset
 	\end{itemize} 
 \end{frame}
 
