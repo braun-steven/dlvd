@@ -14,6 +14,8 @@
 \usetikzlibrary{arrows.meta}
 \usepackage{listings}
 
+\usepackage[backend=biber,style=numeric,citestyle=authortitle]{biblatex}
+\addbibresource{Master.bib}
 \usepackage{grffile}
 \usepackage[T1]{fontenc}
 \usepackage{color}
@@ -23,7 +25,7 @@
 
 \begin{document}
 	\author{Steven Lang, Manfred Faldum}
-	\title{Deep Feature Interpolation for Image Content Change}
+	\title{Deep Feature Interpolation for Image Content Changes\footnote{\cite{dfi}}}
 	%\subtitle{}
 	%\logo{}
 	%\institute{}
@@ -85,8 +87,11 @@
 
 \begin{frame}{Motivation}
 		\begin{minipage}{.5\textwidth}
-			What we want
+			What we want:
+			\vspace{0.5em}
 			\begin{itemize}
+				
+				\setlength\itemsep{1em}
 				\item<2-> Add attribute in pixel space
 				\item<3-> New idea: add attribute in deep feature space
 			\end{itemize}
@@ -104,7 +109,10 @@
 \begin{frame}{Basic Idea}
 	How to get the attribute in deep feature space?
 	\pause
+	\vspace{0.5em}
 	\begin{itemize}
+		
+		\setlength\itemsep{1em}
 		\item Let $\phi(x)$ be the mapping from pixel space into deep feature space by concatenating an arbitrary number of layers
 		\begin{center}
 			\pause
@@ -115,6 +123,8 @@
 
 \begin{frame}{Basic Idea}
 	\begin{itemize}
+		
+		\setlength\itemsep{1em}
 		\item Take $k$ nearest neighbor images with existing attribute: $S^+$
 		\item Take $k$ nearest neighbor images with missing attribute: $S^-$
 		\vfill
@@ -136,12 +146,16 @@
 	\pause
 	
 	\begin{itemize}
+		
+		\setlength\itemsep{1em}
 		\item $\phi(z) = \phi(x) + \alpha w$
 		\item Reverse mapping of $\phi(z)$ into pixel space:
 		
 		\vfill
 		\pause
 		\begin{itemize}
+			
+			\setlength\itemsep{1em}
 			\item $\tilde{z} = \underset{\tilde{z}}{\mathrm{argmin}} \frac{1}{2} ||\phi(z)-\phi(\tilde{z})||_2^2 + \lambda R_{\beta}(\tilde{z})$ 
 			\item with $R_{\beta}(\tilde{z}) = \sum_{i,j}((\tilde{z}_{i,j+1}-\tilde{z}_{i,j})^2 + (\tilde{z}_{i+1,j}-\tilde{z}_{i,j})^2)^{\frac{\beta}{2}}$
 		\end{itemize}
@@ -150,18 +164,23 @@
 	
 \end{frame}
 
+\section{Technical implementation}
+
 \begin{frame}{Technical}
 	\begin{itemize}
+		\setlength\itemsep{1em}
 		\item Model: VGG19 pretrained on IMAGENET dataset
 		\item $\phi(x)$: third, fourth and fifth Relu Layer
 		\item Regularization parameters: $\beta=2$, $\lambda = 0.001$
-		\item Test set: labeled faces in the wild (LFW dataset)
+		\item Test set: labeled faces in the wild (LFW dataset)\footnote{\cite{lfw}, \cite{lfw-df}}
 		\item Optimizer: Adam
 		\item KNN: on discrete attribute features (mustache, smiling, $\dots$)
 		\item Normalization: $\phi(x) = \frac{\phi(x)}{||\phi(x)||}$, $w = \frac{w}{||w||}$
+		\item Initialize $z$ for optimization with the start image
 	\end{itemize} 
 \end{frame}
 
+\section{Results}
 
 % eyeglasses
 
@@ -400,7 +419,7 @@
 	\end{minipage}
 \end{frame}
 
-\begin{frame}{Varying the parameters: Smiling}{$k \in [1, 10, 20, 50, 75, 100, 150, 200]$, $\alpha=0.5$}
+\begin{frame}{Varying the parameters: Smiling}{$k \in [1, 10, 20, 50, 75, 100, 150, 200]$, $\alpha=0.4$}
 	\centering
 	\begin{minipage}{81px}
 		\includegraphics[width=80px]{../pictures/outputs/alpha_k/Smiling/alpha0.4/Silvio_Berlusconi_0023_alpha-0.4_k-12017-02-07_14-07-41.png}\\
@@ -421,13 +440,86 @@
 \end{frame}
 
 
+\begin{frame}{Varying the parameters: $\phi$, {\tiny $k=100$, $\alpha=0.4$}}{}
+	\centering
+	\begin{minipage}{0.3\textwidth}
+		\centering
+		\scriptsize
+		$conv3_1,conv4_1,$\\$conv5_1$
+		\includegraphics[width=80px]{../pictures/outputs/layer_comparison/persons/Silvio_Berlusconi_0023/Senior_alpha-0.4_k-2002017-02-08_23-43-37.png}\\
+		$conv3_1,conv3_2,$\\$conv3_3,conv3_4$
+		\includegraphics[width=80px]{../pictures/outputs/layer_comparison/persons/Silvio_Berlusconi_0023/Senior_alpha-0.4_k-2002017-02-08_23-46-51.png}\\
+		
+	\end{minipage}%
+	\begin{minipage}{0.3\textwidth}
+		\scriptsize
+		\centering
+		$conv4_1,conv4_2,$\\$conv4_3,conv4_4$
+		\includegraphics[width=80px]{../pictures/outputs/layer_comparison/persons/Silvio_Berlusconi_0023/Senior_alpha-0.4_k-2002017-02-08_23-48-36.png}\\
+		$conv5_1,conv5_2,$\\$conv5_3,conv5_4$
+		\includegraphics[width=80px]{../pictures/outputs/layer_comparison/persons/Silvio_Berlusconi_0023/Senior_alpha-0.4_k-2002017-02-08_23-50-32.png}\\
+	\end{minipage}%
+	\begin{minipage}{0.3\textwidth}
+		\centering
+		\scriptsize
+		$conv3_1,conv3_2,conv3_3,conv3_4,$\\
+		$conv4_1,conv4_2,conv4_3,conv4_4,$\\
+		$conv5_1,conv5_2,conv5_3,conv5_4,$\\
+		
+	
+		\includegraphics[width=80px]{../pictures/outputs/layer_comparison/persons/Silvio_Berlusconi_0023/Senior_alpha-0.4_k-2002017-02-08_23-53-43.png}\\
+
+	\end{minipage}%
+\end{frame}
+
+
+\begin{frame}{Varying the parameters} {Optimization initialization (start image)}
+	\centering
+	\begin{minipage}{0.5\textwidth}
+		\centering
+		Original image\\
+		\includegraphics[width=150px]{../pictures/outputs/rand-vs-start/persons/Silvio_Berlusconi_0023/Senior_alpha-0.4_k-2002017-02-09_00-17-35.png}
+		
+	\end{minipage}%
+	\begin{minipage}{0.5\textwidth}
+		\centering
+		Random image\\
+		\includegraphics[width=150px]{../pictures/outputs/rand-vs-start/persons/Silvio_Berlusconi_0023/Senior_alpha-0.4_k-2002017-02-09_00-12-47.png}
+		\end{minipage}%
+\end{frame}
+
 \begin{frame}{Outlook}
 	\begin{itemize}
+		\setlength\itemsep{1em}
 		\item Multiple features at once: $\phi(z) = \phi(x) + \alpha \sum_{i} w_i$
 		\item Nearest Neighbor in deep feature space
-		\item Choose more/less/other layers for $\phi$
 		\item Change normalization: $w = w\frac{||\phi(x)||}{||w||}$
 	\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Motivation}
+	\begin{minipage}{.5\textwidth}
+		What we want:
+		
+		\vspace{0.5em}
+		\begin{itemize}
+			\setlength\itemsep{1em}
+			\item<1-> Add attribute in pixel space
+			\item<2-> New idea: add attribute in deep feature space
+		\end{itemize}
+	\end{minipage}%
+	\begin{minipage}{.5\textwidth}
+		\begin{center}					
+			\includegraphics<1>[width=100px]{../pictures/Berlusconi-pixel-glasses.png}
+			\includegraphics<2->[width=100px]{../pictures/outputs/sunglasses_alpha0.4_k100/Berlusconi.png}
+		\end{center}
+	\end{minipage}
+\end{frame}
+
+\begin{frame}
+	\frametitle{References}
+	\printbibliography
 \end{frame}
 
 \end{document}
